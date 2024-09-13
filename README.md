@@ -2,6 +2,8 @@
 ### Scope
 This service manages analytics from all sources of interest: Marketing Site, Cloud UI, Cluster API and delivers these events to Segment for downstream processing.
 
+[Notion Documentation](https://www.notion.so/qdrant/Containerised-Server-Side-Analytics-53410490a7ec4dd5b4aaf7b2225b9e0a#aafec9b3bafc4310a715aabf394ae3aa)
+
 ## Local Development
 ### Running
 Start virtual environment
@@ -31,6 +33,13 @@ ALLOWED_ORIGINS=http://localhost:1313,http://localhost:3000
 Run from the root directory
 ```
 PYTHONPATH=. pytest app/tests
+```
+
+## With Docker
+
+Can run
+```
+docker-compose build && docker-compose up
 ```
 
 ## Using API
