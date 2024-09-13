@@ -1,4 +1,4 @@
-# Qdrant Cluster API
+# Qdrant Analytics API
 ### Scope
 This service manages analytics from all sources of interest: Marketing Site, Cloud UI, Cluster API and delivers these events to Segment for downstream processing.
 
