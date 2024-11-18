@@ -9,6 +9,6 @@ load_dotenv()
 API_AUTHENTICATION_KEY = os.getenv("API_AUTHENTICATION_KEY")
 
 
-def authenticate(x_api_key: Optional[str] = Header(None)) -> None:
+def authenticate(x_api_key: Optional[str] = Header(None, alias="x_api_key")) -> None:
     if x_api_key != API_AUTHENTICATION_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")

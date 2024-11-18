@@ -43,9 +43,9 @@ class AppConfig(Config):
     tz: str = None  # type: ignore
     log_level: logging = logging.DEBUG
     env: Environments = Environments.LOCAL
-    api_title: str = "Qdrant Analytics Api"
+    api_title: str = "Qdrant Analytics API"
     base_domain: str = "localhost:8000"
-    segment_write_key: str = "iyIg4FyUqxwJysbSBwufFavC9u9QMNlT"
+    segment_write_key: str = "q4fET8II4UoGX7NWh8lVOQWu79pLvz7d"
 
 
 config = {

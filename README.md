@@ -20,6 +20,13 @@ Start the server with
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+Ngrok
+
+To test with webhooks, etc which will forward to localhost and handle https requests.
+```
+ngrok http 8000
+```
+
 ### Environment Variables (.env)
 
 ```

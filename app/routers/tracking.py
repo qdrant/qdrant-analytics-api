@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from qdrant_analytics_events.SegmentIdentify import Model as SegmentIdentify
 from qdrant_analytics_events.SegmentPage import Model as SegmentPage
-from qdrant_analytics_events.SegmentTrack import Model as SegmentTrack
 
 from app.config import get_app_config
 from app.constants import NON_CONSENTED_USER_ID, QDRANT_ANONYMOUS_ID_KEY
@@ -22,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/healthcheck")
-async def healthcheck(_: Request):
+async def healthcheck(request: Request):
     return {"message": "healthcheck successful"}
 
 
@@ -72,7 +71,7 @@ async def identify(
 
         return {"message": "User identified successfully"}
     except Exception as error:
-        logger.warning(f"Error (calling track_event): {error}")
+        logger.warning(f"Error (calling identify): {error}")
         return {"Error": error}
 
 
@@ -84,20 +83,21 @@ async def track_event(
     _: str = Depends(authenticate),
 ):
     try:
-        user_id, anonymous_id, args, data = await create_args(request)
+        data = await request.json()
+        args = await create_args(request, data)
 
-        segment_service.track_event(
-            SegmentTrack(
-                user_id=user_id,
-                anonymous_id=anonymous_id,
-                event_name=data.get("event"),
-                **args,
-            )
+        success = segment_service.track_event(args)
+
+        return (
+            {"message": "Event tracked successfully"}
+            if success
+            else {
+                "error": f"Event track failed. Check logs for event: {args['event_name']}"
+            }
         )
 
-        return {"message": "Event tracked successfully"}
     except Exception as error:
-        logger.warning(f"Error (calling track_event): {error}")
+        logger.warning(f"Error (calling /track): {error}")
         return {"Error": error}
 
 

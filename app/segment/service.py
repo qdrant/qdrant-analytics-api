@@ -1,14 +1,20 @@
 import logging
 from datetime import datetime
-from typing import Literal, TypeVar
+from typing import Literal, TypeVar, Union
 
 import segment.analytics as analytics
 from fastapi import BackgroundTasks
+from qdrant_analytics_events.index import QdrantAnalyticsEvents
+from qdrant_analytics_events.Interaction import Model as InteractionEvent
 from qdrant_analytics_events.SegmentIdentify import Model as SegmentIdentify
 from qdrant_analytics_events.SegmentPage import Model as SegmentPage
 from qdrant_analytics_events.SegmentTrack import Model as SegmentTrack
 
 from app.constants import NON_CONSENTED_USER_ID
+from app.utils import date_format
+
+any_model = InteractionEvent(location="", label="")
+EventType = Union[type(QdrantAnalyticsEvents(any_model).root)]  # type: ignore - Type[] doesn't do it, but type() works!
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +34,8 @@ class SegmentService:
         write_key: str,
         background_tasks: BackgroundTasks,
         source_name: Literal[
-            "default", "cluster_api", "cloud_ui", "marketing"
-        ] = "default",
+            "default", "server_side_analytics"
+        ] = "server_side_analytics",
         send: bool = True,
     ):
         """
@@ -41,12 +47,14 @@ class SegmentService:
         """
         self.analytics = analytics.Client(
             write_key=write_key,
+            debug=False,
             sync_mode=True,
             max_retries=2,
             timeout=3,
             upload_size=1,  # 1 event per request, to avoid batching
             send=send,
             on_error=self._on_error,
+            host="https://events.eu1.segmentapis.com",
         )
         self.background_tasks = background_tasks
         self.source_name = source_name
@@ -97,7 +105,7 @@ class SegmentService:
 
         try:
             event_props["timestamp"] = (
-                datetime.strptime(event_props["timestamp"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                datetime.strptime(event_props["timestamp"], date_format)
                 if event_props["timestamp"]
                 else None
             )
@@ -157,7 +165,7 @@ class SegmentService:
 
         try:
             event_props["timestamp"] = (
-                datetime.strptime(event_props["timestamp"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                datetime.strptime(event_props["timestamp"], date_format)
                 if event_props["timestamp"]
                 else None
             )
@@ -178,59 +186,54 @@ class SegmentService:
     #########
     # Track #
     #########
-    def track_event(self, event: TSegmentTrack) -> None:  # type: ignore
+    def track_event(self, event_payload: dict) -> bool | None:  # type: ignore
         """
         Track event in Segment in a background task, after the response is sent.
 
-        :param str user_id: User id
         :param TSegmentTrack event: SegmentTrack event model
         :return: None
         """
 
-        event = SegmentTrack.model_validate(event)
-        event_props = event.model_dump(mode="json")
-        user_id = event_props.pop("user_id", None)
-        anonymous_id = event_props.pop("anonymous_id", NON_CONSENTED_USER_ID)
-        event_name = event_props.pop("event_name", None)
+        try:
+            event = SegmentTrack.model_validate(event_payload)
+            event_props = event.model_dump(mode="json")
 
-        if (user_id is None and anonymous_id is None) or event_name is None:
-            raise ValueError(
-                "`user_id` (or `anonymous_id`) and `event_name` are required"
-            )
+            if event_props["user_id"] is None and event_props["anonymous_id"] is None:
+                raise ValueError(
+                    "`user_id` (or `anonymous_id`) and `event_name` are required"
+                )
 
-        self.background_tasks.add_task(
-            self._track_event, user_id, anonymous_id, event_name, event_props
-        )
+            self.background_tasks.add_task(self._track_event, event_props)
 
-    def _track_event(
-        self,
-        user_id: str | None,
-        anonymous_id: str | None,
-        event_name: str,
-        event_props: dict,
-    ) -> None:
+        except Exception as error:
+            logger.warning(f"Error (calling track_event): {error}")
+            return False
+
+    def _track_event(self, event_props: dict) -> None:
         """
         Track event in Segment.
         If an exception occurs, the background task will be dropped
         and the event will not be tracked.
 
-        :param str user_id: User id
-        :param str anonymous_id: Anonymous id (set to "not_consented" if user hasn't opted in)
-        :param str event_name: Event name
-        :param dict event_props: { properties, context, integrations, timestamp }
+        :param dict event_props: { event_name, user_id, anonymous_id, properties, context, integrations, timestamp }
+        :return: None
         """
 
         try:
             event_props["timestamp"] = (
-                datetime.strptime(event_props["timestamp"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                datetime.strptime(event_props["timestamp"], date_format)
                 if event_props["timestamp"]
                 else None
             )
 
+            event = event_props.pop("event_name")
+            user_id = event_props.pop("user_id")
+            anonymous_id = event_props.pop("anonymous_id")
+
             success, msg = self.analytics.track(
                 user_id=user_id,
                 anonymous_id=anonymous_id,
-                event=event_name,
+                event=event,
                 **event_props,
             )
 

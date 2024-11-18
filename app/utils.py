@@ -10,6 +10,8 @@ from app.constants import NON_CONSENTED_USER_ID
 
 load_dotenv()
 
+date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+
 
 def now_tz() -> datetime:
     """
@@ -33,8 +35,8 @@ def get_allowed_origins():
 
 
 def get_ids(data: dict) -> Tuple[str, str]:
-    user_id = data.get("userId", None) if "userId" in data else None
-    anonymous_id = data.get("anonymousId", None) or NON_CONSENTED_USER_ID
+    user_id = data.get("user_id", None) if "user_id" in data else None
+    anonymous_id = data.get("anonymous_id", None) or NON_CONSENTED_USER_ID
 
     return user_id, anonymous_id
 
@@ -53,7 +55,7 @@ def format_properties(request: Request, data: dict) -> dict:
         properties["path"] = path
         properties["search"] = search
 
-    properties["referrer"] = request.headers.get("referer")
+    properties["referrer"] = request.headers.get("referer", None)
     properties["originalTimestamp"] = data.get("originalTimestamp", None)
 
     if data.get("name"):  # Page events have a name property
@@ -87,14 +89,16 @@ def format_context(
 
 
 async def create_args(
-    request: Request, exclude_properties: bool = False
-) -> Tuple[str, str, dict]:
-    data = await request.json()
+    request: Request, data: dict, exclude_properties: bool = False
+) -> dict:
     [user_id, anonymous_id] = get_ids(data)
 
     args = {
+        "event_name": data.get("event_name", "no event name"),
+        "user_id": user_id,
+        "anonymous_id": anonymous_id,
         "integrations": data.get("integrations", {}),
-        "timestamp": data.get("originalTimestamp", None),
+        "timestamp": data.get("originalTimestamp", utc_now().strftime(date_format)),
     }
 
     properties = format_properties(request, data)
@@ -104,4 +108,4 @@ async def create_args(
 
     args["context"] = format_context(request, data, properties, anonymous_id)
 
-    return user_id, anonymous_id, args, data
+    return args
