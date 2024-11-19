@@ -2,7 +2,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from qdrant_analytics_events.SegmentIdentify import Model as SegmentIdentify
 from qdrant_analytics_events.SegmentPage import Model as SegmentPage
@@ -71,7 +71,7 @@ async def identify(
 
         return {"message": "User identified successfully"}
     except Exception as error:
-        logger.warning(f"Error (calling identify): {error}")
+        logger.error(f"Error (calling identify): {error}")
         return {"Error": error}
 
 
@@ -88,17 +88,23 @@ async def track_event(
 
         success = segment_service.track_event(args)
 
-        return (
-            {"message": "Event tracked successfully"}
-            if success
-            else {
-                "error": f"Event track failed. Check logs for event: {args['event_name']}"
-            }
-        )
+        if success:
+            return {"message": "Event tracked successfully"}
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Event track failed. Check logs for event: {args['event_name']}",
+            )
 
     except Exception as error:
-        logger.warning(f"Error (calling /track): {error}")
-        return {"Error": error}
+        msg = f"Error (calling /track): {error}"
+
+        logger.error(msg)
+
+        raise HTTPException(
+            status_code=500,
+            detail=msg,
+        )
 
 
 # https://segment.com/docs/connections/spec/page/

@@ -45,7 +45,7 @@ class AppConfig(Config):
     env: Environments = Environments.LOCAL
     api_title: str = "Qdrant Analytics API"
     base_domain: str = "localhost:8000"
-    segment_write_key: str = "q4fET8II4UoGX7NWh8lVOQWu79pLvz7d"
+    segment_write_key: str = "noKey"
 
 
 config = {

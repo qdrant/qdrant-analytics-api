@@ -186,7 +186,7 @@ class SegmentService:
     #########
     # Track #
     #########
-    def track_event(self, event_payload: dict) -> bool | None:  # type: ignore
+    def track_event(self, event_payload: dict) -> bool:  # type: ignore
         """
         Track event in Segment in a background task, after the response is sent.
 
@@ -204,6 +204,8 @@ class SegmentService:
                 )
 
             self.background_tasks.add_task(self._track_event, event_props)
+
+            return True
 
         except Exception as error:
             logger.warning(f"Error (calling track_event): {error}")
